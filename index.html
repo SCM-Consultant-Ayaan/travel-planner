@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>루트짐 — 국내여행 플래너</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@600;800&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#16324A; --ink:#22303C; --sea:#2E7F8C; --tangerine:#F2820A; --tangerine-dk:#D96D00;
+  --paper:#F0F4F5; --card:#FFFFFF; --line:#D8E0E4; --muted:#6B7A85;
+  --move:#8A98A3; --radius:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans KR',sans-serif;background:var(--paper);color:var(--ink);line-height:1.55}
+header{background:var(--navy);color:#fff;padding:18px 22px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+header h1{font-family:'Hahmlet',serif;font-weight:800;font-size:1.45rem;letter-spacing:-.5px}
+header h1 .dot{color:var(--tangerine)}
+header p{font-size:.85rem;opacity:.75}
+.wrap{max-width:1200px;margin:0 auto;padding:18px;display:grid;grid-template-columns:340px 1fr;gap:18px}
+@media(max-width:900px){.wrap{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+.panel h2{font-family:'Hahmlet',serif;font-size:1.05rem;font-weight:800;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.panel h2 .step{width:22px;height:22px;border-radius:50%;background:var(--tangerine);color:#fff;font-size:.75rem;display:inline-flex;align-items:center;justify-content:center;font-family:'IBM Plex Sans KR';font-weight:700}
+label{display:block;font-size:.8rem;font-weight:700;color:var(--muted);margin:14px 0 6px}
+input[type=text],input[type=time],textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-family:inherit;font-size:.92rem;background:#FAFCFC}
+input[type=text]:focus,input[type=time]:focus,textarea:focus{outline:2px solid var(--sea);border-color:transparent}
+textarea{resize:vertical;min-height:74px}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{flex:1;padding:9px 4px;border:none;background:#FAFCFC;font-family:inherit;font-size:.85rem;cursor:pointer;color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--navy);color:#fff;font-weight:700}
+.stepper{display:flex;align-items:center;gap:12px}
+.stepper button{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:#fff;font-size:1.1rem;cursor:pointer;color:var(--navy)}
+.stepper button:hover{background:var(--paper)}
+.stepper .val{font-family:'Hahmlet',serif;font-weight:800;font-size:1.15rem;min-width:84px;text-align:center}
+.go{width:100%;margin-top:20px;padding:14px;border:none;border-radius:12px;background:var(--tangerine);color:#fff;font-family:inherit;font-size:1rem;font-weight:700;cursor:pointer;transition:background .15s}
+.go:hover{background:var(--tangerine-dk)} .go:disabled{background:#C9D2D8;cursor:wait}
+.dl{width:100%;margin-top:10px;padding:13px;border:2px solid var(--navy);border-radius:12px;background:#fff;color:var(--navy);font-family:inherit;font-size:.95rem;font-weight:700;cursor:pointer}
+.dl:hover{background:var(--navy);color:#fff} .dl:disabled{border-color:var(--line);color:#B7C2CA;cursor:not-allowed;background:#fff}
+#map{height:400px;border-radius:var(--radius);border:1px solid var(--line);z-index:0}
+.tabs{display:flex;gap:8px;margin:14px 0;flex-wrap:wrap}
+.tabs button{padding:7px 16px;border-radius:999px;border:1px solid var(--line);background:#fff;font-family:inherit;font-size:.85rem;cursor:pointer;color:var(--muted)}
+.tabs button.on{background:var(--tangerine);border-color:var(--tangerine);color:#fff;font-weight:700}
+.day-title{font-family:'Hahmlet',serif;font-weight:800;font-size:1rem;margin:6px 0 12px;color:var(--navy)}
+/* 루트 스파인 리스트 */
+.route{position:relative;padding-left:44px}
+.route::before{content:"";position:absolute;left:15px;top:14px;bottom:14px;border-left:3px dashed var(--tangerine);opacity:.55}
+.stop{position:relative;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+.stop .num{position:absolute;left:-44px;top:10px;width:30px;height:30px;border-radius:50%;background:var(--navy);color:#fff;font-weight:700;font-size:.85rem;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 0 0 2px var(--tangerine)}
+.stop .head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.stop .time{font-weight:700;font-size:.85rem;color:var(--sea)}
+.stop .cat{font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:999px;background:#E7F1EA;color:#2C6E49}
+.cat.식사,.cat.시장{background:#FFF3D6;color:#9A6B00}.cat.카페{background:#FDE8DC;color:#B4501E}
+.cat.숙소{background:#ECEFF1;color:#5A6B76}.cat.물놀이,.cat.온천{background:#DFEDF8;color:#2A6496}
+.cat.공연{background:#F2E2EC;color:#8E3A6C}.cat.항공,.cat.렌터카{background:#E2E8F6;color:#3B5398}
+.stop .place{font-weight:700;margin-top:3px}
+.stop .note{font-size:.83rem;color:var(--muted);margin-top:3px}
+.movebar{position:relative;margin:0 0 10px;padding:5px 14px;font-size:.78rem;color:var(--move)}
+.movebar b{color:var(--move);font-weight:500}
+.empty{border:2px dashed var(--line);border-radius:var(--radius);padding:44px 20px;text-align:center;color:var(--muted);font-size:.9rem}
+.empty .big{font-family:'Hahmlet',serif;font-size:1.2rem;color:var(--navy);font-weight:800;margin-bottom:8px}
+.err{margin-top:12px;background:#FDECEA;color:#B3261E;border-radius:10px;padding:10px 12px;font-size:.85rem;display:none}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.marker-pin{background:var(--navy);color:#fff;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;border:3px solid #fff;box-shadow:0 0 0 2px var(--tangerine),0 2px 6px rgba(0,0,0,.3);font-family:'IBM Plex Sans KR'}
+@media(prefers-reduced-motion:reduce){.spin{animation:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>루트짐<span class="dot">.</span></h1>
+  <p>순서대로 찍고, 이동까지 계산하고, 엑셀로 들고 가는 국내여행 플래너</p>
+</header>
+
+<div class="wrap">
+  <!-- 왼쪽: 설정 -->
+  <div class="panel">
+    <h2><span class="step">1</span>여행 조건</h2>
+
+    <label for="region">여행 지역</label>
+    <input type="text" id="region" placeholder="예: 제주, 경주, 여수, 강릉" value="제주">
+
+    <label>기간</label>
+    <div class="stepper">
+      <button type="button" onclick="chgNights(-1)" aria-label="줄이기">−</button>
+      <span class="val" id="nightsLabel">3박 4일</span>
+      <button type="button" onclick="chgNights(1)" aria-label="늘리기">＋</button>
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <div style="flex:1">
+        <label for="startTime">여행지 도착 시간 (1일차)</label>
+        <input type="time" id="startTime" value="09:00">
+      </div>
+      <div style="flex:1">
+        <label for="endTime">여행지 출발 시간 (마지막 날)</label>
+        <input type="time" id="endTime" value="19:00">
+      </div>
+    </div>
+
+    <label>이동 수단</label>
+    <div class="seg" id="transSeg">
+      <button type="button" class="on" data-v="자차">🚗 자차·렌터카</button>
+      <button type="button" data-v="대중교통">🚌 대중교통</button>
+      <button type="button" data-v="택시">🚕 택시</button>
+    </div>
+
+    <label>관광 형태</label>
+    <div class="seg" id="paceSeg">
+      <button type="button" data-v="휴식">🌿 휴식</button>
+      <button type="button" class="on" data-v="여유">🍃 여유로운</button>
+      <button type="button" data-v="타이트">⚡ 타이트</button>
+    </div>
+
+    <label for="must">꼭 가고 싶은 곳 (쉼표로 구분)</label>
+    <textarea id="must" placeholder="예: 성산일출봉, 만장굴, 김경숙 해바라기 농장"></textarea>
+
+    <label for="pref">동행·취향 메모 (선택)</label>
+    <textarea id="pref" placeholder="예: 어머니와 둘이, 꽃 좋아하심, 한낮 더위 피하고 싶음, 해산물 제외"></textarea>
+
+    <button class="go" id="goBtn" onclick="generate()">일정 추천받기</button>
+    <button class="dl" id="dlBtn" onclick="downloadXlsx()" disabled>📥 엑셀(.xlsx) 다운로드</button>
+
+    <div id="editBox" style="display:none;margin-top:18px;border-top:1px dashed var(--line);padding-top:14px">
+      <h2><span class="step">2</span>일정 수정하기</h2>
+      <label for="editReq">바꾸고 싶은 부분을 말해주세요</label>
+      <textarea id="editReq" placeholder="예: 2일차 점심을 해산물 말고 다른 걸로 / 성산일출봉 빼고 오름 하나 넣어줘 / 3일차에 카페 추가"></textarea>
+      <button class="go" id="editBtn" onclick="refine()" style="margin-top:10px">이렇게 바꿔줘</button>
+    </div>
+    <div class="err" id="err"></div>
+  </div>
+
+  <!-- 오른쪽: 지도 + 일정 -->
+  <div>
+    <div class="panel" style="padding:12px">
+      <div id="map"></div>
+      <div class="tabs" id="dayTabs"></div>
+    </div>
+    <div class="panel" style="margin-top:18px" id="listPanel">
+      <div class="empty" id="emptyState">
+        <div class="big">아직 일정이 없어요</div>
+        왼쪽에서 조건을 채우고 <b>일정 추천받기</b>를 누르면,<br>
+        꼭 가고 싶은 곳을 중심으로 빈 시간을 채워 지도에 순서대로 찍어드립니다.
+      </div>
+      <div id="dayList"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+let nights = 3;
+let plan = null;          // {days:[{title, items:[{time,category,place,note,lat,lng}]}]}
+let curDay = 0;
+let map, layerGroup;
+let tripTimes = { start:'09:00', end:'19:00', last:3 };
+
+function chgNights(d){
+  nights = Math.min(9, Math.max(0, nights + d));
+  document.getElementById('nightsLabel').textContent = nights === 0 ? '당일치기' : `${nights}박 ${nights+1}일`;
+}
+document.getElementById('transSeg').addEventListener('click', e=>{
+  if(e.target.tagName!=='BUTTON') return;
+  document.querySelectorAll('#transSeg button').forEach(b=>b.classList.remove('on'));
+  e.target.classList.add('on');
+});
+document.getElementById('paceSeg').addEventListener('click', e=>{
+  if(e.target.tagName!=='BUTTON') return;
+  document.querySelectorAll('#paceSeg button').forEach(b=>b.classList.remove('on'));
+  e.target.classList.add('on');
+});
+function transMode(){ return document.querySelector('#transSeg button.on').dataset.v; }
+function paceMode(){ return document.querySelector('#paceSeg button.on').dataset.v; }
+// 페이스별 규칙 텍스트
+const PACE_SPEC = {
+  '휴식':   {places:'하루 관광지 1~2곳만(메인 명소 위주) + 점심·저녁 식당. 카페·휴식 넉넉히. 오전 늦게 시작해도 됨',
+             detail:'각 장소 체류 넉넉히(관광 90~120분, 카페 60분). 일정 사이 여백 크게, 하루 총 3~4개 항목. 아침은 여유롭게 10시 이후 시작 가능'},
+  '여유':   {places:'하루 관광지 2~3곳 + 점심·저녁 식당 + 카페 1곳',
+             detail:'각 장소 체류 여유(관광 75~90분, 식사 60분, 카페 45분). 이동에 쫓기지 않게 약간의 여백 포함'},
+  '타이트': {places:'하루 관광지 4~5곳 + 점심·저녁 식당. 아침 일찍 시작해 알차게',
+             detail:'각 장소 체류 압축(관광 45~60분, 식사 45분, 카페 30분). 여백 최소화, 아침 일찍(8~9시) 시작해 하루를 꽉 채움'}
+};
+
+// ---------- 지도 ----------
+function initMap(){
+  map = L.map('map').setView([36.4, 127.9], 7);
+  const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+  let warned = false;
+  tiles.on('tileerror', ()=>{
+    if(warned) return; warned = true;
+    const div = document.createElement('div');
+    div.style.cssText='position:absolute;left:10px;right:10px;bottom:10px;z-index:1000;background:#16324A;color:#fff;font-size:.78rem;padding:8px 12px;border-radius:8px;opacity:.92';
+    div.textContent='미리보기 환경에서는 배경 지도가 차단될 수 있어요. 파일을 다운로드해 브라우저에서 열면 정상 표시됩니다. (마커·경로는 여기서도 확인 가능)';
+    document.getElementById('map').appendChild(div);
+  });
+  layerGroup = L.layerGroup().addTo(map);
+}
+function drawDay(di){
+  curDay = di;
+  layerGroup.clearLayers();
+  document.querySelectorAll('#dayTabs button').forEach((b,i)=>b.classList.toggle('on', i===di));
+  if(!plan) return;
+  const pts = plan.days[di].items.filter(it=>it.category!=='이동' && isFinite(it.lat) && isFinite(it.lng));
+  const latlngs = [];
+  pts.forEach((it,i)=>{
+    const icon = L.divIcon({className:'', html:`<div class="marker-pin">${i+1}</div>`, iconSize:[30,30], iconAnchor:[15,15]});
+    L.marker([it.lat,it.lng],{icon}).bindPopup(`<b>${i+1}. ${it.place}</b><br><span style="font-size:.8rem">${it.time||''} · ${it.category}</span>`).addTo(layerGroup);
+    latlngs.push([it.lat,it.lng]);
+  });
+  if(latlngs.length>1) L.polyline(latlngs,{color:'#F2820A',weight:3,dashArray:'6 8'}).addTo(layerGroup);
+  if(latlngs.length) map.fitBounds(latlngs,{padding:[36,36]});
+}
+
+// ---------- 렌더 ----------
+function render(){
+  const tabs = document.getElementById('dayTabs');
+  const list = document.getElementById('dayList');
+  document.getElementById('emptyState').style.display='none';
+  tabs.innerHTML = plan.days.map((d,i)=>`<button onclick="drawDay(${i});renderList(${i})">${i+1}일차</button>`).join('');
+  renderList(0); drawDay(0);
+  document.getElementById('dlBtn').disabled = false;
+  document.getElementById('editBox').style.display = 'block';
+}
+function renderList(di){
+  const d = plan.days[di];
+  let n = 0;
+  let html = `<div class="day-title">${d.title}</div><div class="route">`;
+  d.items.forEach(it=>{
+    if(it.category==='이동'){
+      html += `<div class="movebar">↓ <b>${it.time||''}</b> · ${it.place}${it.note && it.note!=='-' ? ' · '+it.note : ''}</div>`;
+    }else{
+      n++;
+      html += `<div class="stop"><div class="num">${n}</div>
+        <div class="head"><span class="time">${it.time||''}</span><span class="cat ${it.category}">${it.category}</span></div>
+        <div class="place">${it.place}</div>
+        ${it.note?`<div class="note">${it.note}</div>`:''}</div>`;
+    }
+  });
+  html += `</div>`;
+  document.getElementById('dayList').innerHTML = html;
+}
+
+// ---------- AI 일정 생성 (2단계: 뼈대 → 일차별 상세) ----------
+async function callClaude(prompt){
+  const res = await fetch('/api/messages',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ prompt })
+  });
+  if(!res.ok) throw new Error('api '+res.status);
+  const data = await res.json();
+  const clean = (data.text||'').replace(/```json|```/g,'').trim();
+  return JSON.parse(clean);
+}
+
+async function generate(){
+  const btn = document.getElementById('goBtn');
+  const err = document.getElementById('err');
+  err.style.display='none';
+  const region = document.getElementById('region').value.trim();
+  if(!region){ err.textContent='여행 지역을 입력해 주세요.'; err.style.display='block'; return; }
+  const must = document.getElementById('must').value.trim();
+  const pref = document.getElementById('pref').value.trim();
+  const trans = transMode();
+  const pace = paceMode();
+  const days = nights + 1;
+  const moveWord = trans==='자차' ? '차' : (trans==='택시' ? '택시' : '버스/지하철');
+  tripTimes = { start: document.getElementById('startTime').value || '09:00',
+                end: document.getElementById('endTime').value || '19:00',
+                last: days - 1 };
+
+  btn.disabled = true;
+  try{
+    // 1단계: 전체 뼈대 (일차별 장소 이름만 — 응답이 짧아 잘리지 않음)
+    btn.innerHTML = '<span class="spin"></span>전체 동선 설계 중…';
+    const outline = await callClaude(
+`한국 국내여행 플래너로서 ${region} ${nights===0?'당일치기':nights+'박 '+days+'일'} 여행의 뼈대만 짜세요.
+- 이동수단: ${trans} / 꼭 갈 곳(전부 포함): ${must||'없음, 대표 명소 추천'} / 취향: ${pref||'일반 성인'}
+- 관광 형태: ${pace} → ${PACE_SPEC[pace].places}
+- 1일차는 ${tripTimes.start} 도착 후 시작, 마지막 날은 ${tripTimes.end} 출발 전 마무리(첫날·마지막날 장소 수를 가용 시간에 맞게 조절).
+
+[동선 최소화 — 가장 중요]
+- 하루는 하나의 지리적 권역으로 묶으세요(예: 동부/서부/남부, 또는 인접 시·군). 서로 먼 지역을 같은 날에 섞지 마세요.
+- 하루 안의 방문 순서는 한 방향으로 흐르게(시계방향 또는 역방향 루프). 왔던 길을 되돌아가거나 지그재그 금지.
+- 숙소를 매일 옮기지 않는다면, 각 날의 권역이 전날 끝 지점·다음날 시작 지점과 이어지도록 배치.
+- 꼭 갈 곳은 그 위치가 속한 권역의 날에 배정.
+
+[식사 배치]
+- 각 날 places에 점심(12~13시경)과 저녁(18~19시경) 식당을 반드시 1곳씩 포함.
+- 식당은 그 시간대에 지나가는 동선 위(직전 장소와 가까운 곳)에 두어 밥 먹으러 멀리 돌아가지 않게.
+- 점심 식당은 오전 마지막 장소 근처, 저녁 식당은 숙소나 그날 마지막 장소 근처.
+
+순수 JSON만 출력(펜스 금지), 다른 텍스트 금지:
+{"days":[{"theme":"권역명 포함 짧은 테마","places":["오전장소","점심식당(점심)","오후장소","저녁식당(저녁)"]}, ...]}
+places는 실제 방문/식사 순서대로 나열. days 배열 길이는 정확히 ${days}.`);
+    if(!outline.days || outline.days.length===0) throw new Error('outline empty');
+
+    // 2단계: 일차별 상세 (하루씩 호출 → 응답 짧아 안정적)
+    const result = {days:[]};
+    for(let i=0;i<outline.days.length;i++){
+      btn.innerHTML = `<span class="spin"></span>${i+1}일차 상세 일정 작성 중… (${i+1}/${outline.days.length})`;
+      const o = outline.days[i];
+      result.days.push(await buildDay(i, o.theme, o.places, region, trans, moveWord, pref, pace));
+    }
+    plan = result;
+    render();
+  }catch(e){
+    console.error(e);
+    err.textContent = '일정 생성 중 오류가 났어요. 다시 시도하거나 기간·장소 수를 줄여보세요. (여러 번 반복되면 잠시 후 재시도)';
+    err.style.display='block';
+  }finally{
+    btn.disabled=false; btn.textContent='일정 추천받기';
+  }
+}
+
+// 일차 하나의 상세 일정 생성 (생성·수정 공용)
+async function buildDay(i, theme, places, region, trans, moveWord, pref, pace){
+  let timeRule = '';
+  if(i === 0) timeRule = `\n- 1일차: ${tripTimes.start}에 여행지 도착 → 첫 일정은 그 이후 시작.`;
+  if(i === tripTimes.last) timeRule += `\n- 마지막 날: ${tripTimes.end}에 여행지에서 출발(공항/역) → 최소 1시간 전에 모든 일정을 마치고 마지막에 "이동" 항목으로 공항/역 이동을 넣기.`;
+  const paceRule = (pace && PACE_SPEC[pace]) ? `\n- 관광 형태 "${pace}": ${PACE_SPEC[pace].detail}` : '';
+  const day = await callClaude(
+`${region} 여행 ${i+1}일차 상세 일정을 만드세요. 방문 순서: ${places.join(' → ')}
+이동수단: ${trans}, 이동 표기 "${moveWord} X분". 취향: ${pref||'일반 성인'}${timeRule}${paceRule}
+- 방문 순서는 위 순서를 지키되, 지리적으로 되돌아가지 않게 시간을 배분.
+- 점심 식사는 12:00~13:00 사이, 저녁 식사는 18:00~19:00 사이에 오도록 앞뒤 장소의 체류시간을 조절.
+- 각 장소 체류시간은 위 관광 형태 기준에 맞추고, 이동시간만큼 시각을 이어서 계산.
+순수 JSON만 출력(펜스 금지):
+{"title":"${i+1}일차 · ${theme}","items":[
+{"time":"09:30","category":"관광","place":"장소명","note":"요금·메뉴·팁 30자 이내","lat":33.5100,"lng":126.5200},
+{"time":"10:30~10:50","category":"이동","place":"A → B 이동 (총 20분)","note":"-"},
+...]}
+규칙: category는 관광/식사/카페/이동/숙소/물놀이/온천/시장/공연 중 하나. 장소 사이마다 이동 항목 필수(time은 HH:MM~HH:MM). 이동 외 항목엔 실제에 가까운 lat/lng 필수(소수점 4자리). note는 30자 이내로 간결히, 불확실하면 "현장 확인".`);
+  if(!day.items) throw new Error('day empty');
+  return optimizeDayOrder(day);
+}
+
+// 좌표 기반 동선 후처리: 식사·숙소 순서는 유지하고, 그 사이 '관광/카페' 구간만
+// 최근접 이웃으로 재정렬해 되돌아가기를 줄인다. 그 후 이동 항목을 다시 계산.
+function haversine(a,b){
+  const R=6371, toR=x=>x*Math.PI/180;
+  const dLat=toR(b.lat-a.lat), dLng=toR(b.lng-a.lng);
+  const s=Math.sin(dLat/2)**2 + Math.cos(toR(a.lat))*Math.cos(toR(b.lat))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(s));
+}
+function optimizeDayOrder(day){
+  const stops = day.items.filter(it=>it.category!=='이동');
+  if(stops.length<4) return day; // 짧은 날은 그대로
+  // 앵커(식사/숙소/시장/온천/물놀이/공연)는 위치 고정, 그 사이 관광·카페만 재배열
+  const isAnchor = c => ['식사','숙소','시장','온천','물놀이','공연','항공','렌터카'].includes(c);
+  const out=[]; let i=0;
+  while(i<stops.length){
+    if(isAnchor(stops[i].category)){ out.push(stops[i]); i++; continue; }
+    // 연속된 비앵커 구간 수집
+    let seg=[]; while(i<stops.length && !isAnchor(stops[i].category)){ seg.push(stops[i]); i++; }
+    // 이전 앵커(또는 이전 확정 stop)에서 가장 가까운 순서로 greedy 정렬
+    const startRef = out.length?out[out.length-1]:seg[0];
+    const ordered=[]; const pool=seg.slice(); let ref=startRef;
+    while(pool.length){
+      let bi=0,bd=Infinity;
+      pool.forEach((p,idx)=>{ if(isFinite(p.lat)&&isFinite(p.lng)){const d=haversine(ref,p); if(d<bd){bd=d;bi=idx;}}});
+      ref=pool[bi]; ordered.push(pool[bi]); pool.splice(bi,1);
+    }
+    out.push(...ordered);
+  }
+  // 이동 항목 재생성 (연속 stop 사이 거리→대략 분 환산)
+  const speed = 45; // km/h 가정(자차 기준)
+  const rebuilt=[];
+  for(let k=0;k<out.length;k++){
+    rebuilt.push(out[k]);
+    if(k<out.length-1){
+      const a=out[k], b=out[k+1];
+      if(isFinite(a.lat)&&isFinite(b.lat)){
+        const mins=Math.max(5, Math.round(haversine(a,b)/speed*60/5)*5);
+        const w = transMode()==='자차'?'차':(transMode()==='택시'?'택시':'대중교통');
+        rebuilt.push({time:'', category:'이동',
+          place:`${a.place} → ${b.place} 이동 (${w} 약 ${mins}분)`, note:'-'});
+      }
+    }
+  }
+  return {title:day.title, items:rebuilt};
+}
+
+// ---------- 자연어 일정 수정 ----------
+async function refine(){
+  const req = document.getElementById('editReq').value.trim();
+  const btn = document.getElementById('editBtn');
+  const err = document.getElementById('err');
+  err.style.display='none';
+  if(!plan){ return; }
+  if(!req){ err.textContent='수정하고 싶은 내용을 입력해 주세요.'; err.style.display='block'; return; }
+  const region = document.getElementById('region').value.trim();
+  const pref = document.getElementById('pref').value.trim();
+  const trans = transMode();
+  const pace = paceMode();
+  const moveWord = trans==='자차' ? '차' : (trans==='택시' ? '택시' : '버스/지하철');
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span>수정 반영 계획 중…';
+  try{
+    // 현재 일정 요약 (장소만 — 짧게)
+    const summary = plan.days.map((d,i)=>`${i+1}일차(${d.title}): ${d.items.filter(x=>x.category!=='이동').map(x=>`${x.place}[${x.category}]`).join(', ')}`).join('\n');
+    // 1단계: 어떤 일차를 어떻게 바꿀지 결정
+    const decision = await callClaude(
+`현재 ${region} 여행 일정:
+${summary}
+
+사용자 수정 요청: "${req}"
+
+수정이 필요한 일차만 골라, 그 일차의 새 방문 순서(장소 이름 목록)를 만드세요. 요청과 무관한 일차는 포함하지 마세요. 기존 장소는 최대한 유지하고 요청된 부분만 바꾸세요.
+순수 JSON만 출력(펜스 금지):
+{"changes":[{"dayIndex":0,"theme":"짧은 테마","places":["장소1","식당(점심)","장소2"]}]}
+dayIndex는 0부터 시작.`);
+    if(!decision.changes || !decision.changes.length) throw new Error('no changes');
+
+    // 2단계: 해당 일차만 재생성
+    for(let k=0;k<decision.changes.length;k++){
+      const c = decision.changes[k];
+      btn.innerHTML = `<span class="spin"></span>${c.dayIndex+1}일차 다시 작성 중… (${k+1}/${decision.changes.length})`;
+      plan.days[c.dayIndex] = await buildDay(c.dayIndex, c.theme, c.places, region, trans, moveWord, pref, pace);
+    }
+    render();
+    // 수정된 첫 일차 화면으로 이동
+    const first = decision.changes[0].dayIndex;
+    drawDay(first); renderList(first);
+    document.getElementById('editReq').value='';
+  }catch(e){
+    console.error(e);
+    err.textContent = '수정 반영에 실패했어요. 요청을 조금 더 구체적으로 써서 다시 시도해 주세요. (예: "2일차 점심을 고기국수로")';
+    err.style.display='block';
+  }finally{
+    btn.disabled=false; btn.textContent='이렇게 바꿔줘';
+  }
+}
+
+// ---------- 엑셀 다운로드 (대화에서 만든 형식과 동일) ----------
+function downloadXlsx(){
+  if(!plan) return;
+  const region = document.getElementById('region').value.trim() || '국내';
+  const aoa = [['시간','구분','장소','비고 (요금·대표메뉴·팁)']];
+  const merges = [];
+  plan.days.forEach(d=>{
+    merges.push({s:{r:aoa.length,c:0}, e:{r:aoa.length,c:3}});
+    aoa.push([d.title,'','','']);
+    d.items.forEach(it=> aoa.push([it.time||'', it.category, it.place, it.note||'-']));
+  });
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges'] = merges;
+  ws['!cols'] = [{wch:13},{wch:8},{wch:40},{wch:55}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '일정표');
+  XLSX.writeFile(wb, `${region}여행_일정표.xlsx`);
+}
+
+initMap();
+</script>
+</body>
+</html>
