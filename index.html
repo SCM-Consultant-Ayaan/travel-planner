@@ -251,8 +251,16 @@ async function callClaude(prompt){
   });
   if(!res.ok) throw new Error('api '+res.status);
   const data = await res.json();
-  const clean = (data.text||'').replace(/```json|```/g,'').trim();
-  return JSON.parse(clean);
+  let raw = (data.text||'').trim();
+  // 마크다운 펜스 제거
+  raw = raw.replace(/```json/gi,'').replace(/```/g,'').trim();
+  // 앞뒤에 잡텍스트가 있어도 첫 { 부터 마지막 } 까지만 취함
+  const first = raw.indexOf('{');
+  const last = raw.lastIndexOf('}');
+  if(first !== -1 && last !== -1 && last > first){
+    raw = raw.slice(first, last+1);
+  }
+  return JSON.parse(raw);
 }
 
 async function generate(){
