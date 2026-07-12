@@ -6,10 +6,10 @@ export async function onRequestPost({ request, env }) {
     if (!prompt) {
       return json({ error: "prompt 없음" }, 400);
     }
-
+ 
     const model = "gemini-flash-latest";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-
+ 
     const res = await fetch(url, {
       method: "POST",
       headers: {
@@ -18,15 +18,19 @@ export async function onRequestPost({ request, env }) {
       },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 2048 },
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 4096,
+          responseMimeType: "application/json",
+        },
       }),
     });
-
+ 
     if (!res.ok) {
       const detail = await res.text();
       return json({ error: "Gemini 오류", status: res.status, detail }, 502);
     }
-
+ 
     const data = await res.json();
     // Gemini 응답에서 텍스트만 추출
     const text =
@@ -36,7 +40,7 @@ export async function onRequestPost({ request, env }) {
     return json({ error: String(e) }, 500);
   }
 }
-
+ 
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
     status,
