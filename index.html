@@ -57,6 +57,9 @@ textarea{resize:vertical;min-height:74px}
 .cat.공연{background:#F2E2EC;color:#8E3A6C}.cat.항공,.cat.렌터카{background:#E2E8F6;color:#3B5398}
 .stop .place{font-weight:700;margin-top:3px}
 .stop .note{font-size:.83rem;color:var(--muted);margin-top:3px}
+.booking{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
+.booking a{font-size:.75rem;font-weight:700;text-decoration:none;padding:4px 10px;border-radius:999px;background:#FFF3D6;color:#9A6B00;border:1px solid #F0D9A0}
+.booking a:hover{background:#FBE4A8}
 .movebar{position:relative;margin:0 0 10px;padding:5px 14px;font-size:.78rem;color:var(--move)}
 .movebar b{color:var(--move);font-weight:500}
 .empty{border:2px dashed var(--line);border-radius:var(--radius);padding:44px 20px;text-align:center;color:var(--muted);font-size:.9rem}
@@ -89,6 +92,9 @@ textarea{resize:vertical;min-height:74px}
       <button type="button" onclick="chgNights(1)" aria-label="늘리기">＋</button>
     </div>
 
+    <label for="startDate">여행 시작 날짜</label>
+    <input type="date" id="startDate">
+
     <div style="display:flex;gap:10px">
       <div style="flex:1">
         <label for="startTime">여행지 도착 시간 (1일차)</label>
@@ -112,6 +118,27 @@ textarea{resize:vertical;min-height:74px}
       <button type="button" data-v="휴식">🌿 휴식</button>
       <button type="button" class="on" data-v="여유">🍃 여유로운</button>
       <button type="button" data-v="타이트">⚡ 타이트</button>
+    </div>
+
+    <label>숙소</label>
+    <div class="seg" id="staySeg">
+      <button type="button" class="on" data-v="추천">🏨 추천받기</button>
+      <button type="button" data-v="확정">✅ 이미 정함</button>
+    </div>
+
+    <div id="stayBudgetBox">
+      <label>1박 예산 (1인 기준)</label>
+      <div style="display:flex;gap:10px;align-items:center">
+        <input type="number" id="budgetMin" placeholder="최소" value="5" min="0" step="1" style="flex:1">
+        <span style="color:var(--muted);font-size:.85rem">~</span>
+        <input type="number" id="budgetMax" placeholder="최대" value="15" min="0" step="1" style="flex:1">
+        <span style="color:var(--muted);font-size:.85rem;white-space:nowrap">만원</span>
+      </div>
+    </div>
+
+    <div id="stayFixedBox" style="display:none">
+      <label for="stayFixed">정한 숙소 (지역/이름)</label>
+      <textarea id="stayFixed" placeholder="예: 1~2일 탑동 리:플로우 제주 / 3일 서귀포 내려놓기펜션" style="min-height:56px"></textarea>
     </div>
 
     <label for="must">꼭 가고 싶은 곳 (쉼표로 구분)</label>
@@ -172,8 +199,17 @@ document.getElementById('paceSeg').addEventListener('click', e=>{
   document.querySelectorAll('#paceSeg button').forEach(b=>b.classList.remove('on'));
   e.target.classList.add('on');
 });
+document.getElementById('staySeg').addEventListener('click', e=>{
+  if(e.target.tagName!=='BUTTON') return;
+  document.querySelectorAll('#staySeg button').forEach(b=>b.classList.remove('on'));
+  e.target.classList.add('on');
+  const fixed = e.target.dataset.v==='확정';
+  document.getElementById('stayFixedBox').style.display = fixed ? 'block' : 'none';
+  document.getElementById('stayBudgetBox').style.display = fixed ? 'none' : 'block';
+});
 function transMode(){ return document.querySelector('#transSeg button.on').dataset.v; }
 function paceMode(){ return document.querySelector('#paceSeg button.on').dataset.v; }
+function stayMode(){ return document.querySelector('#staySeg button.on').dataset.v; }
 // 페이스별 규칙 텍스트
 const PACE_SPEC = {
   '휴식':   {places:'하루 관광지 1~2곳만(메인 명소 위주) + 점심·저녁 식당. 카페·휴식 넉넉히. 오전 늦게 시작해도 됨',
@@ -224,6 +260,17 @@ function render(){
   document.getElementById('dlBtn').disabled = false;
   document.getElementById('editBox').style.display = 'block';
 }
+function bookingLinks(placeName){
+  const q = encodeURIComponent(placeName.replace(/\s*\(숙소\)\s*/,'').trim());
+  const yanolja = `https://www.yanolja.com/search/${q}`;
+  const ddnm = `https://www.goodchoice.kr/product/search/${q}`;
+  const hcom = `https://www.hotelscombined.co.kr/Search?query=${q}`;
+  return `<div class="booking">
+    <a href="${yanolja}" target="_blank" rel="noopener">야놀자</a>
+    <a href="${ddnm}" target="_blank" rel="noopener">여기어때</a>
+    <a href="${hcom}" target="_blank" rel="noopener">호텔스컴바인</a>
+  </div>`;
+}
 function renderList(di){
   const d = plan.days[di];
   let n = 0;
@@ -236,7 +283,8 @@ function renderList(di){
       html += `<div class="stop"><div class="num">${n}</div>
         <div class="head"><span class="time">${it.time||''}</span><span class="cat ${it.category}">${it.category}</span></div>
         <div class="place">${it.place}</div>
-        ${it.note?`<div class="note">${it.note}</div>`:''}</div>`;
+        ${it.note?`<div class="note">${it.note}</div>`:''}
+        ${it.category==='숙소' && it.place && !/체크아웃|체크인$/.test(it.place) ? bookingLinks(it.place) : ''}</div>`;
     }
   });
   html += `</div>`;
@@ -244,6 +292,48 @@ function renderList(di){
 }
 
 // ---------- AI 일정 생성 (2단계: 뼈대 → 일차별 상세) ----------
+// ---------- 날씨: 10일 이내면 예보, 아니면 평년 경향 문구 ----------
+// Open-Meteo(무료, 키 불필요). 지역명 → 좌표는 지오코딩 API 사용.
+async function getWeatherContext(region, startDate, days){
+  try{
+    if(!startDate) return '';
+    const start = new Date(startDate + 'T00:00:00');
+    const today = new Date(); today.setHours(0,0,0,0);
+    const diffDays = Math.round((start - today) / 86400000);
+
+    // 지역 좌표 얻기
+    const geo = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(region)}&count=1&language=ko&country=KR`);
+    const gd = await geo.json();
+    const loc = gd.results && gd.results[0];
+    const month = start.getMonth()+1;
+
+    // 10일 이내 → 실제 예보
+    if(loc && diffDays >= 0 && diffDays <= 10){
+      const end = new Date(start); end.setDate(end.getDate() + Math.min(days-1, 15));
+      const iso = d => d.toISOString().slice(0,10);
+      const wx = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FSeoul&start_date=${iso(start)}&end_date=${iso(end)}`);
+      const wd = await wx.json();
+      if(wd.daily && wd.daily.time){
+        const lines = wd.daily.time.map((t,i)=>{
+          const hi=Math.round(wd.daily.temperature_2m_max[i]);
+          const lo=Math.round(wd.daily.temperature_2m_min[i]);
+          const pop=wd.daily.precipitation_probability_max[i];
+          return `${i+1}일차(${t}): 최고 ${hi}℃/최저 ${lo}℃, 강수확률 ${pop}%`;
+        }).join(' / ');
+        return `\n[실제 날씨 예보 — 반드시 반영]\n${lines}\n- 30℃ 이상이거나 강수확률 60% 이상인 날은 야외 장시간 코스(긴 산책·오름·해변) 대신 실내(박물관·카페·아쿠아리움·온천)를 우선.\n- 비 예보일엔 우천 시 대안이 있는 실내 위주로.\n- 쾌적한 날(18~26℃, 강수 낮음)엔 야외 명소를 적극 배치.`;
+      }
+    }
+    // 그 외 → 평년 기후 경향(월 기준 한국 일반 경향)
+    const CLIMATE = {
+      1:'한겨울, 매우 추움(영하 가능)', 2:'늦겨울, 추움', 3:'초봄, 쌀쌀', 4:'봄, 온화·꽃',
+      5:'늦봄, 쾌적', 6:'초여름, 더워지기 시작·장마 초입', 7:'한여름, 무덥고 장마·소나기 잦음',
+      8:'한여름, 매우 무덥고 습함·태풍 가능', 9:'초가을, 온화하나 초순 늦더위', 10:'가을, 쾌적·청명',
+      11:'늦가을, 쌀쌀', 12:'초겨울, 추움'
+    };
+    return `\n[평년 기후 경향 — 참고]\n${region} ${month}월: ${CLIMATE[month]}.\n- 더운 시기(6~9월)면 한낮(12~15시)은 실내(박물관·카페·온천)로, 야외는 오전·늦은 오후에 배치.\n- 추운 시기(11~2월)면 장시간 야외 산책·해변을 줄이고 실내 비중을 높이기.\n- 장마·태풍 가능 시기면 우천 대안(실내) 옵션을 포함.`;
+  }catch(e){ console.warn('weather skip', e); return ''; }
+}
+
 async function callClaude(prompt){
   const res = await fetch('/api/messages',{
     method:'POST', headers:{'Content-Type':'application/json'},
@@ -273,13 +363,34 @@ async function generate(){
   const pref = document.getElementById('pref').value.trim();
   const trans = transMode();
   const pace = paceMode();
+  const stay = stayMode();
+  const startDate = document.getElementById('startDate').value;
   const days = nights + 1;
   const moveWord = trans==='자차' ? '차' : (trans==='택시' ? '택시' : '버스/지하철');
   tripTimes = { start: document.getElementById('startTime').value || '09:00',
                 end: document.getElementById('endTime').value || '19:00',
                 last: days - 1 };
 
+  // 숙소 지시문 구성
+  let stayRule = '';
+  if(nights > 0){
+    if(stay === '확정'){
+      const fixed = document.getElementById('stayFixed').value.trim();
+      stayRule = fixed
+        ? `\n[숙소 — 사용자가 이미 정함]\n"${fixed}"\n- 이 숙소를 각 날 마지막 항목(category "숙소")으로 넣고, 동선을 숙소 위치에 맞춰 정리.`
+        : `\n[숙소]\n- 사용자가 숙소를 정했다고 했으나 구체 정보 없음. 각 날 마지막에 category "숙소"로 "숙소 체크인" 항목만 넣기.`;
+    } else {
+      const bMin = document.getElementById('budgetMin').value || '5';
+      const bMax = document.getElementById('budgetMax').value || '15';
+      stayRule = `\n[숙소 — 추천 필요]\n- 1박 1인 예산 ${bMin}만~${bMax}만원.\n- 각 날 마지막 항목으로 category "숙소"를 넣되, place는 실제 존재하는(그 지역에서 운영 중인) 숙소 이름으로. note에는 대략 가격대와 특징을 20자 내로.\n- 매일 옮기지 말고, 권역 이동이 클 때만 숙소 변경. 가능하면 동선 중심에 위치한 숙소로.`;
+    }
+  }
+
+  // 날씨 컨텍스트 (비동기)
   btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span>날씨 확인 중…';
+  const weatherRule = await getWeatherContext(region, startDate, days);
+
   try{
     // 1단계: 전체 뼈대 (일차별 장소 이름만 — 응답이 짧아 잘리지 않음)
     btn.innerHTML = '<span class="spin"></span>전체 동선 설계 중…';
@@ -288,6 +399,7 @@ async function generate(){
 - 이동수단: ${trans} / 꼭 갈 곳(전부 포함): ${must||'없음, 대표 명소 추천'} / 취향: ${pref||'일반 성인'}
 - 관광 형태: ${pace} → ${PACE_SPEC[pace].places}
 - 1일차는 ${tripTimes.start} 도착 후 시작, 마지막 날은 ${tripTimes.end} 출발 전 마무리(첫날·마지막날 장소 수를 가용 시간에 맞게 조절).
+${weatherRule}${stayRule}
 
 [동선 최소화 — 가장 중요]
 - 하루는 하나의 지리적 권역으로 묶으세요(예: 동부/서부/남부, 또는 인접 시·군). 서로 먼 지역을 같은 날에 섞지 마세요.
@@ -301,8 +413,8 @@ async function generate(){
 - 점심 식당은 오전 마지막 장소 근처, 저녁 식당은 숙소나 그날 마지막 장소 근처.
 
 순수 JSON만 출력(펜스 금지), 다른 텍스트 금지:
-{"days":[{"theme":"권역명 포함 짧은 테마","places":["오전장소","점심식당(점심)","오후장소","저녁식당(저녁)"]}, ...]}
-places는 실제 방문/식사 순서대로 나열. days 배열 길이는 정확히 ${days}.`);
+{"days":[{"theme":"권역명 포함 짧은 테마","places":["오전장소","점심식당(점심)","오후장소","저녁식당(저녁)","숙소명(숙소)"]}, ...]}
+places는 실제 방문/식사 순서대로 나열하고, 숙소가 있으면 각 날 places 맨 뒤에 "숙소명(숙소)" 형태로 포함. days 배열 길이는 정확히 ${days}.`);
     if(!outline.days || outline.days.length===0) throw new Error('outline empty');
 
     // 2단계: 일차별 상세 (하루씩 호출 → 응답 짧아 안정적)
@@ -373,19 +485,35 @@ function optimizeDayOrder(day){
     }
     out.push(...ordered);
   }
-  // 이동 항목 재생성 (연속 stop 사이 거리→대략 분 환산)
+  // 이동 항목 재생성 + 재정렬된 순서대로 시간 다시 매기기 (시간 역전 방지)
   const speed = 45; // km/h 가정(자차 기준)
+  const w = transMode()==='자차'?'차':(transMode()==='택시'?'택시':'대중교통');
+  // 카테고리별 체류시간(분)
+  const stayMin = c => ({'식사':60,'카페':45,'온천':90,'물놀이':90,'시장':60,'공연':90,'숙소':0,'항공':0,'렌터카':30}[c] || 75);
+  // 시작 시각: 원래 첫 stop의 time에서 추출, 없으면 09:00
+  const firstTime = (out[0] && out[0].time || '09:00').split('~')[0].trim();
+  let [h, m] = firstTime.split(':').map(n=>parseInt(n,10));
+  if(isNaN(h)) { h = 9; m = 0; }
+  const fmt = (H,M)=>`${String(H).padStart(2,'0')}:${String(M).padStart(2,'0')}`;
+  const addMin = (mins)=>{ m += mins; h += Math.floor(m/60); m = m%60; };
+
   const rebuilt=[];
   for(let k=0;k<out.length;k++){
-    rebuilt.push(out[k]);
+    const cur = out[k];
+    const startH=h, startM=m;
+    const dur = stayMin(cur.category);
+    // 체류가 있는 항목은 시간 범위, 순간 항목(항공/숙소)은 단일 시각
+    cur.time = dur>0 ? `${fmt(startH,startM)}~${(()=>{addMin(dur); const t=fmt(h,m); return t;})()}`
+                     : fmt(startH,startM);
+    rebuilt.push(cur);
     if(k<out.length-1){
-      const a=out[k], b=out[k+1];
-      if(isFinite(a.lat)&&isFinite(b.lat)){
-        const mins=Math.max(5, Math.round(haversine(a,b)/speed*60/5)*5);
-        const w = transMode()==='자차'?'차':(transMode()==='택시'?'택시':'대중교통');
-        rebuilt.push({time:'', category:'이동',
-          place:`${a.place} → ${b.place} 이동 (${w} 약 ${mins}분)`, note:'-'});
-      }
+      const b=out[k+1];
+      let mins = 10;
+      if(isFinite(cur.lat)&&isFinite(b.lat)) mins=Math.max(5, Math.round(haversine(cur,b)/speed*60/5)*5);
+      const mvStart = fmt(h,m);
+      addMin(mins);
+      rebuilt.push({time:`${mvStart}~${fmt(h,m)}`, category:'이동',
+        place:`${cur.place} → ${b.place} 이동 (${w} 약 ${mins}분)`, note:'-'});
     }
   }
   return {title:day.title, items:rebuilt};
@@ -462,6 +590,12 @@ function downloadXlsx(){
   XLSX.writeFile(wb, `${region}여행_일정표.xlsx`);
 }
 
+// 시작 날짜 기본값: 오늘 +14일
+(function(){
+  const d = new Date(); d.setDate(d.getDate()+14);
+  const el = document.getElementById('startDate');
+  if(el) el.value = d.toISOString().slice(0,10);
+})();
 initMap();
 </script>
 </body>
