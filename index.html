@@ -127,12 +127,11 @@ textarea{resize:vertical;min-height:74px}
     </div>
 
     <div id="stayBudgetBox">
-      <label>1박 예산 (1인 기준)</label>
-      <div style="display:flex;gap:10px;align-items:center">
-        <input type="number" id="budgetMin" placeholder="최소" value="5" min="0" step="1" style="flex:1">
-        <span style="color:var(--muted);font-size:.85rem">~</span>
-        <input type="number" id="budgetMax" placeholder="최대" value="15" min="0" step="1" style="flex:1">
-        <span style="color:var(--muted);font-size:.85rem;white-space:nowrap">만원</span>
+      <label>1박 예산 (1인 기준 / 단위: 만원)</label>
+      <div style="display:flex;gap:8px;align-items:center;width:100%">
+        <input type="number" id="budgetMin" placeholder="최소" value="5" min="0" step="1" style="flex:1;min-width:0">
+        <span style="color:var(--muted);font-size:.85rem;flex:0 0 auto">~</span>
+        <input type="number" id="budgetMax" placeholder="최대" value="15" min="0" step="1" style="flex:1;min-width:0">
       </div>
     </div>
 
